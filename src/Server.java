@@ -1,3 +1,4 @@
+import javax.xml.crypto.Data;
 import java.io.*;
 import java.net.DatagramPacket;
 import java.net.MulticastSocket;
@@ -11,17 +12,29 @@ public class Server {
             while(true) {
                 DatagramPacket recvPacket = new DatagramPacket(recvBuf, recvBuf.length);
                 socket.receive(recvPacket);
-                String msg = new String(recvPacket.getData(), 0, recvPacket.getLength());
+                String recvMsg = new String(recvPacket.getData(), 0, recvPacket.getLength());
+                recvMsg += ".txt";
 
-                if(msg.equalsIgnoreCase("fine")) {
+                if(recvMsg.equalsIgnoreCase("fine")) {
                     System.out.println("Server terminato");
                     System.exit(0);
                 }
 
-                File file = new File(msg);
+                String sendMsg;
+                File file = new File(recvMsg);
                 if(file.exists()) {
+                    int letCount = countLettersInFile(recvMsg);
+                    int numCount = countNumbersInFile(recvMsg);
 
+                    sendMsg = "Lettere=" + letCount + ";Cifre=" + numCount;
                 }
+                else {
+                    sendMsg = "File non trovato";
+                }
+
+                sendBuf = sendMsg.getBytes();
+                DatagramPacket packet = new DatagramPacket(sendBuf, sendBuf.length, recvPacket.getAddress(), recvPacket.getPort());
+                socket.send(packet);
             }
         }
         catch(Exception e) {
@@ -67,22 +80,41 @@ public class Server {
         return null;
     }
 
-    private static String searchArrayInFile(String path, String[] keywords) {
-        int[] keywordsOccurrences = new int[keywords.length];
+    private static int countLettersInFile(String path) {
+        int count = 0;
+        try (BufferedReader reader = new BufferedReader(new FileReader(path))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                for(int i = 0; i < line.length(); ++i) {
+                    if(Character.isLetter(line.charAt(i))) {
+                        count++;
+                    }
+                }
+            }
+            return count;
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return 0;
+    }
+
+    private static int countNumbersInFile(String path) {
+        int count = 0;
         try (BufferedReader reader = new BufferedReader(new FileReader(path))) {
             String line;
             String output = "";
             while ((line = reader.readLine()) != null) {
-                for(int i = 0; i < keywords.length; ++i) {
-                    if(line.contains(keywords[i]))
-                        keywordsOccurrences[i]++;
+                for(int i = 0; i < line.length(); ++i) {
+                    if(Character.isDigit(line.charAt(i))) {
+                        count++;
+                    }
                 }
             }
-            return output;
+            return count;
         } catch (IOException e) {
             e.printStackTrace();
         }
-        return null;
+        return 0;
     }
 
     private static void appendToFile(String path, String text) {
